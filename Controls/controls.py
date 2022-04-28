@@ -1,11 +1,9 @@
-
-#!/usr/bin/env python
-# coding: utf-8
-
 # Load the gamepad and time libraries
 import Gamepad
 import time
 import json
+import subprocess
+import threading
 import RPi.GPIO as GPIO
 from time import sleep
 
@@ -17,7 +15,7 @@ buttonExit = 'L2'
 buttonRight = 'L1'
 buttonDown = 'TRIANGLE'
 buttonUp = 'SQUARE'
-# Servo Settings 
+# Servo Settings
 GPIO.setmode(GPIO.BOARD)
 GPIO.setup(11, GPIO.OUT)
 GPIO.setup(12,GPIO.OUT)
@@ -46,7 +44,9 @@ balloons_data = {
 
 # Webserver Functions
 
-def update_controls_data(button_type, state):
+def update_controls_data(button_type, state, addDelay):
+    if (addDelay):
+        time.sleep(0.5)
     if (button_type == "left"):
         if (state == 0):
             updated_data = {'left_active': 0}
@@ -75,6 +75,8 @@ def update_controls_data(button_type, state):
         elif (state == 1):
             updated_data = {'down_active': 1}
             controls_data.update(updated_data)
+    write_controls_json()
+    subprocess.call(['sh', './copy_data.sh'])
 
 def write_controls_json():
     json_string = json.dumps(controls_data)
@@ -82,7 +84,9 @@ def write_controls_json():
     with open('controls_data.json', 'w') as outfile:
         outfile.write(json_string)
 
-def update_balloons_data(balloon, state):
+def update_balloons_data(balloon, state, addDelay):
+    if (addDelay):
+        time.sleep(0.5)
     if (button_type == "top_left"):
         if (state == 0):
             updated_data = {'top_left_popped': 0}
@@ -125,7 +129,8 @@ def update_balloons_data(balloon, state):
         elif (state == 1):
             updated_data = {'bottom_right_popped': 1}
             balloons_data.update(updated_data)
-                
+    write_balloons_json()
+
 
 def write_balloons_json():
     json_string = json.dumps(balloons_data)
@@ -133,7 +138,7 @@ def write_balloons_json():
     with open('balloons_data.json', 'w') as outfile:
         outfile.write(json_string)
 
-# Servo Functions 
+# Servo Functions
 def set_angle_return(angle):
     duty = angle / 18 + 2
     GPIO.output(11, True)
@@ -173,7 +178,7 @@ def init_x_pos():
     sleep(1)
     GPIO.output(11, False)
     pwm.ChangeDutyCycle(duty)
-    
+
 def init_y_pos(): #servo 2
     duty = 25 / 18 + 2
     GPIO.output(12, True)
@@ -195,7 +200,7 @@ def move_right(st_angle):
 		set_angle(st_angle)
 		st_angle -= 3
 		move_right(st_angle)
-        
+
 def move_up(st_angle2):
 	while (st_angle2 <= 55):
 		set_angle2(st_angle2)
@@ -205,8 +210,8 @@ def move_down(st_angle2):
 	while (st_angle2 >= 10):
 		set_angle2(st_angle2)
 		st_angle2 -= 3
-	
-        
+
+
 # Wait for a connection
 if not Gamepad.available():
     print('Please connect your gamepad...')
@@ -232,12 +237,12 @@ while gamepad.isConnected():
             # Trigger
             if value:
                 print('Trigger Pressed !')
-                
+
                 #pwm.ChangeDutyCycle(100)
             else:
                 print('Trigger Released !')
                 #pwm.ChangeDutyCycle(0)
-                
+
         elif control == buttonLeft:
             # Left
             if value:
@@ -245,8 +250,9 @@ while gamepad.isConnected():
                 if(st_angle <= 55):
                     st_angle += 2
                     set_angle(st_angle)
-                    update_controls_data("left", 1)
-                    write_controls_json()
+                    update_controls_data("left", 1, False)
+                    t1 = threading.Thread(target=update_controls_data, args=("left", 0, True))
+                    t1.start()
                 elif(st_angle >= 53):
                     print('Boundary Reached')
                     pwm.ChangeDutyCycle(0)
@@ -260,8 +266,9 @@ while gamepad.isConnected():
                 if (st_angle > 5):
                     st_angle -= 2
                     set_angle(st_angle)
-                    update_controls_data("right", 1)
-                    write_controls_json()
+                    update_controls_data("right", 1, False)
+                    t1 = threading.Thread(target=update_controls_data, args=("right", 0, True))
+                    t1.start()
                 elif(st_angle <= 7):
                     print('Boundary Reached')
                     pwm.ChangeDutyCycle(0)
@@ -276,8 +283,9 @@ while gamepad.isConnected():
                 if (st_angle2 <= 55):
                     set_angle2(st_angle2)
                     st_angle2 += 2
-                    update_controls_data("up", 1)
-                    write_controls_json()
+                    update_controls_data("up", 1, False)
+                    t1 = threading.Thread(target=update_controls_data, args=("up", 0, True))
+                    t1.start()
                 elif(st_angle >= 53):
                     print('Boundary Reached')
                     pwm.ChangeDutyCycle(0)
@@ -291,7 +299,9 @@ while gamepad.isConnected():
                 if (st_angle2 >= 10):
                     set_angle2(st_angle2)
                     st_angle2 -= 2
-                    update_controls_data("down", 1)
+                    update_controls_data("down", 1, False)
+                    t1 = threading.Thread(target=update_controls_data, args=("down", 0, True))
+                    t1.start()
                     write_controls_json()
                 elif(st_angle <= 13):
                     print('Boundary Reached')
@@ -299,7 +309,7 @@ while gamepad.isConnected():
             else:
                 #print('Stop moving Down')
                 pwm2.ChangeDutyCycle(0)
-                
+
         elif control == buttonExit:
             # Exit
             if value:
@@ -308,6 +318,6 @@ while gamepad.isConnected():
                 pwm.ChangeDutyCycle(0)
                 init_y_pos()
                 pwm2.ChangeDutyCycle(0)
-                
+
         #else:
             #print(gamepad.getNextEvent())
