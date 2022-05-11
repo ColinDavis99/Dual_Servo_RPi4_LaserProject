@@ -1,6 +1,6 @@
 # URI ELE408_LaserProject 
 
-Final project for ELE 408 - Embedded Systems Design<br/>
+<strong>Final project for ELE 408 - Embedded Systems Design</strong><br/>
 Professor Brenden Smerbeck<br/>
 5/11/2022<br/>
 
